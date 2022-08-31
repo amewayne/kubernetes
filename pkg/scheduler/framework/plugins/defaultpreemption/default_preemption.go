@@ -19,6 +19,7 @@ package defaultpreemption
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"sort"
 
@@ -234,6 +235,10 @@ func (pl *DefaultPreemption) SelectVictimsOnNode(
 // We look at the node that is nominated for this pod and as long as there are
 // terminating pods on the node, we don't consider this for preempting more pods.
 func (pl *DefaultPreemption) PodEligibleToPreemptOthers(pod *v1.Pod, nominatedNodeStatus *framework.Status) (bool, string) {
+	podPriority := corev1helpers.PodPriority(pod)
+	if podPriority <= math.MinInt32 {
+		return false, fmt.Sprint("not eligible due to minimum priority value on the pod")
+	}
 	if pod.Spec.PreemptionPolicy != nil && *pod.Spec.PreemptionPolicy == v1.PreemptNever {
 		return false, fmt.Sprint("not eligible due to preemptionPolicy=Never.")
 	}

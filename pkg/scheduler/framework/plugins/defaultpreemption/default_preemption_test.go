@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"sort"
 	"strings"
@@ -58,7 +59,7 @@ import (
 )
 
 var (
-	negPriority, lowPriority, midPriority, highPriority, veryHighPriority = int32(-100), int32(0), int32(100), int32(1000), int32(10000)
+	negPriority, lowPriority, midPriority, highPriority, veryHighPriority, veryLowPriority = int32(-100), int32(0), int32(100), int32(1000), int32(10000), int32(math.MinInt32)
 
 	smallRes = map[v1.ResourceName]string{
 		v1.ResourceCPU:    "100m",
@@ -178,6 +179,21 @@ func TestPostFilter(t *testing.T) {
 			},
 			wantResult: framework.NewPostFilterResultWithNominatedNode(""),
 			wantStatus: framework.NewStatus(framework.Unschedulable, "preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod."),
+		},
+		{
+			name: "pod with minimum priority will be ineligible for preemption",
+			pod:  st.MakePod().Name("p").UID("p").Namespace(v1.NamespaceDefault).Priority(veryLowPriority).Obj(),
+			pods: []*v1.Pod{
+				st.MakePod().Name("p1").UID("p1").Namespace(v1.NamespaceDefault).Node("node1").Obj(),
+			},
+			nodes: []*v1.Node{
+				st.MakeNode().Name("node1").Capacity(onePodRes).Obj(),
+			},
+			filteredNodesStatuses: framework.NodeToStatusMap{
+				"node1": framework.NewStatus(framework.Unschedulable),
+			},
+			wantResult: nil,
+			wantStatus: framework.NewStatus(framework.Unschedulable, "preemption: not eligible due to minimum priority value on the pod"),
 		},
 		{
 			name: "preemption should respect filteredNodesStatuses",
